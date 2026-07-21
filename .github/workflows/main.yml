@@ -2,7 +2,7 @@ name: CI - Expense Tracker
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
   pull_request:
     branches: [main]
 
