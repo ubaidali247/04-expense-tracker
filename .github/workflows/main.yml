@@ -1,10 +1,10 @@
-name: CI - Expense Tracker
+name: CI Pipeline
 
 on:
   push:
     branches: [main, master, develop]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   e2e-tests:
@@ -27,16 +27,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
       - name: Start server
         run: node backend/server.js &
-        
+
       - name: Wait for server
         run: npx wait-on http://localhost:3004/api/health --timeout 30000
+        env:
+          PORT: 3001
 
       - name: Run Cypress (${{ matrix.group.name }})
         uses: cypress-io/github-action@v6
@@ -44,5 +45,6 @@ jobs:
           browser: chrome
           spec: ${{ matrix.group.spec }}
           config-file: cypress.config.js
+          install: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
