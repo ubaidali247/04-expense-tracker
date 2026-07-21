@@ -1,0 +1,48 @@
+name: CI - Expense Tracker
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - name: group-1-navigation
+            spec: "cypress/e2e/navigation.cy.js"
+          - name: group-2-crud
+            spec: "cypress/e2e/crud.cy.js"
+          - name: group-3-search
+            spec: "cypress/e2e/search.cy.js"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start server
+        run: node backend/server.js &
+        
+      - name: Wait for server
+        run: npx wait-on http://localhost:3004/api/health --timeout 30000
+
+      - name: Run Cypress (${{ matrix.group.name }})
+        uses: cypress-io/github-action@v6
+        with:
+          browser: chrome
+          spec: ${{ matrix.group.spec }}
+          config-file: cypress.config.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

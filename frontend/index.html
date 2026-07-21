@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">Expense Tracker</div>
+    <div class="nav-links">
+        <a href="#dashboard" class="nav-link" data-page="dashboard">Dashboard</a>
+        <a href="#expenses" class="nav-link" data-page="expenses">Expenses</a>
+        <a href="#add" class="nav-link" data-page="add">Reports</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Dashboard Page -->
+    <div id="page-dashboard" class="page">
+      <h1 class="page-title">Dashboard</h1>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="stat-total">0</div>
+          <div class="stat-label">Total Expenses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-recent">0</div>
+          <div class="stat-label">Added This Week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-categories">6</div>
+          <div class="stat-label">Categories</div>
+        </div>
+      </div>
+      <div class="recent-section">
+        <h2>Recent Expenses</h2>
+        <div id="recent-list" class="items-grid"></div>
+      </div>
+    </div>
+
+    <!-- List Page -->
+    <div id="page-expenses" class="page hidden">
+      <div class="page-header">
+        <h1 class="page-title">Expenses</h1>
+        <button class="btn btn-primary" id="btn-add-new">+ Add New</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Search expenses..." class="search-input">
+        <select id="filter-category" class="filter-select">
+          <option value="">All Categories</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="Health">Health</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Bills">Bills</option>
+        </select>
+      </div>
+      <div id="expenses-list" class="items-grid"></div>
+    </div>
+
+    <!-- Add/Edit Page -->
+    <div id="page-add" class="page hidden">
+      <h1 class="page-title" id="form-title">Add New Expense</h1>
+      <form id="item-form" class="form-card">
+        <input type="hidden" id="item-id">
+        <div class="form-group"><label for="field-title">Description</label><input type="text" id="field-title" name="title" data-field="title" placeholder="Description"></div>
+        <div class="form-group"><label for="field-amount">Amount (€)</label><input type="text" id="field-amount" name="amount" data-field="amount" placeholder="Amount (€)"></div>
+        <div class="form-group"><label for="field-category">Category</label><select id="field-category" name="category" data-field="category"><option value="">Select...</option><option value="Food">Food</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Health">Health</option><option value="Shopping">Shopping</option><option value="Bills">Bills</option></select></div>
+        <div class="form-group"><label for="field-date">Date</label><input type="date" id="field-date" name="date" data-field="date"></div>
+        <div class="form-group"><label for="field-type">Type</label><select id="field-type" name="type" data-field="type"><option value="">Select...</option><option value="expense">expense</option><option value="income">income</option></select></div>
+        <div class="form-group"><label for="field-notes">Notes</label><textarea id="field-notes" name="notes" data-field="notes"></textarea></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="btn-submit">Save</button>
+          <button type="button" class="btn btn-secondary" id="btn-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Detail Page -->
+    <div id="page-detail" class="page hidden">
+      <div class="page-header">
+        <button class="btn btn-secondary" id="btn-back">← Back</button>
+        <div>
+          <button class="btn btn-primary" id="btn-edit">Edit</button>
+          <button class="btn btn-danger" id="btn-delete">Delete</button>
+        </div>
+      </div>
+      <div id="detail-content" class="detail-card"></div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    const API = 'http://localhost:3004/api/expenses';
+    const ENTITY = 'expenses';
+    let currentId = null;
+
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.getElementById('page-' + name).classList.remove('hidden');
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      const activeLink = document.querySelector('[data-page="' + name + '"]') ||
+                         document.querySelector('[data-page="' + ENTITY + '"]');
+      if (activeLink && (name === 'dashboard' || name === ENTITY || name === 'add')) {
+        document.querySelector('[data-page="' + name + '"]')?.classList.add('active');
+      }
+    }
+
+    function showToast(msg, type='success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast ' + type;
+      setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    async function fetchItems(search='', category='') {
+      let url = API;
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (category) params.set('category', category);
+      if (params.toString()) url += '?' + params.toString();
+      const res = await fetch(url);
+      return res.json();
+    }
+
+    function renderCard(item) {
+      const title = item.title || item.name || 'Untitled';
+      const subtitle = item.category || item.author || item.company || '';
+      const badge = item.status || item.priority || item.rating || '';
+      return `<div class="item-card" data-id="${item.id}">
+        <h3 class="item-title">${title}</h3>
+        ${subtitle ? `<p class="item-subtitle">${subtitle}</p>` : ''}
+        ${badge ? `<span class="badge">${badge}</span>` : ''}
+        <p class="item-desc">${item.description || item.content || item.review || item.notes || ''}</p>
+        <div class="card-actions">
+          <button class="btn-sm btn-view" onclick="viewItem('${item.id}')">View</button>
+          <button class="btn-sm btn-edit-card" onclick="editItem('${item.id}')">Edit</button>
+          <button class="btn-sm btn-delete-card" onclick="deleteItem('${item.id}')">Delete</button>
+        </div>
+      </div>`;
+    }
+
+    async function loadList() {
+      const search = document.getElementById('search-input')?.value || '';
+      const category = document.getElementById('filter-category')?.value || '';
+      const items = await fetchItems(search, category);
+      document.getElementById(ENTITY + '-list').innerHTML = items.length
+        ? items.map(renderCard).join('')
+        : '<p class="empty-state">No items found. Add your first one!</p>';
+    }
+
+    async function loadDashboard() {
+      const items = await fetchItems();
+      document.getElementById('stat-total').textContent = items.length;
+      const weekAgo = new Date(Date.now() - 7*24*60*60*1000);
+      const recent = items.filter(i => new Date(i.createdAt) > weekAgo);
+      document.getElementById('stat-recent').textContent = recent.length;
+      const recentList = document.getElementById('recent-list');
+      recentList.innerHTML = items.slice(0, 4).map(renderCard).join('') || '<p class="empty-state">No items yet.</p>';
+    }
+
+    async function viewItem(id) {
+      currentId = id;
+      const res = await fetch(API + '/' + id);
+      const item = await res.json();
+      const content = Object.entries(item)
+        .filter(([k]) => !['id','createdAt','updatedAt'].includes(k))
+        .map(([k,v]) => `<div class="detail-row"><span class="detail-label">${k}</span><span class="detail-value">${Array.isArray(v) ? v.join(', ') : v}</span></div>`)
+        .join('');
+      document.getElementById('detail-content').innerHTML = `<h2>${item.title || item.name}</h2>${content}`;
+      showPage('detail');
+    }
+
+    async function editItem(id) {
+      currentId = id;
+      const res = await fetch(API + '/' + id);
+      const item = await res.json();
+      document.getElementById('form-title').textContent = 'Edit Item';
+      document.getElementById('item-id').value = id;
+      Object.entries(item).forEach(([k,v]) => {
+        const el = document.getElementById('field-' + k);
+        if (el) el.value = Array.isArray(v) ? v.join(', ') : v;
+      });
+      showPage('add');
+    }
+
+    async function deleteItem(id) {
+      if (!confirm('Are you sure you want to delete this item?')) return;
+      await fetch(API + '/' + id, { method: 'DELETE' });
+      showToast('Deleted successfully');
+      loadList();
+      showPage(ENTITY);
+    }
+
+    document.getElementById('item-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('item-id').value;
+      const data = {};
+      e.target.querySelectorAll('[data-field]').forEach(el => {
+        data[el.dataset.field] = el.value;
+      });
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? API + '/' + id : API;
+      const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      if (res.ok) {
+        showToast(id ? 'Updated!' : 'Created!');
+        currentId = null;
+        document.getElementById('item-id').value = '';
+        e.target.reset();
+        showPage(ENTITY);
+        loadList();
+      }
+    });
+
+    document.getElementById('btn-cancel').addEventListener('click', () => showPage(ENTITY));
+    document.getElementById('btn-back')?.addEventListener('click', () => { showPage(ENTITY); loadList(); });
+    document.getElementById('btn-edit')?.addEventListener('click', () => currentId && editItem(currentId));
+    document.getElementById('btn-delete')?.addEventListener('click', () => currentId && deleteItem(currentId));
+    document.getElementById('btn-add-new')?.addEventListener('click', () => {
+      document.getElementById('form-title').textContent = 'Add New Item';
+      document.getElementById('item-id').value = '';
+      document.getElementById('item-form').reset();
+      currentId = null;
+      showPage('add');
+    });
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = link.dataset.page;
+        showPage(page);
+        if (page === 'dashboard') loadDashboard();
+        if (page === ENTITY) loadList();
+        if (page === 'add') {
+          document.getElementById('form-title').textContent = 'Add New Item';
+          document.getElementById('item-id').value = '';
+          document.getElementById('item-form').reset();
+          currentId = null;
+        }
+      });
+    });
+
+    document.getElementById('search-input')?.addEventListener('input', loadList);
+    document.getElementById('filter-category')?.addEventListener('change', loadList);
+
+    // Init
+    showPage('dashboard');
+    loadDashboard();
+  </script>
+</body>
+</html>

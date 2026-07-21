@@ -1,0 +1,21 @@
+{
+  "name": "expense-tracker",
+  "version": "1.0.0",
+  "description": "Expense Tracker - Research Project for Flaky Test Detection Study",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "start:ci": "node backend/server.js",
+    "cy:run": "cypress run",
+    "cy:open": "cypress open",
+    "test:ci": "cypress run --headless --browser chrome"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "cypress": "^13.6.0"
+  }
+}
