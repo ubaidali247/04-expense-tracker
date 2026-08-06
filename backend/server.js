@@ -12,6 +12,44 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
+// ============================================================
+// FLAKINESS INJECTION LAYER
+// Controls which endpoints behave unreliably and how often
+// Used for: MSc Dissertation - AI-Assisted Flaky Test Detection
+// ============================================================
+const FLAKY_CONFIG = {
+  enabled: true,
+  slowEndpoints: ['/api/expenses', '/api/expenses/:id'],  // GET endpoints that randomly slow down
+  errorEndpoints: ['/api/expenses'],                       // POST endpoint that randomly errors
+  slowProbability: 0.35,    // 35% chance of slow response
+  errorProbability: 0.25,   // 25% chance of server error on POST
+  slowDelayMs: {
+    min: 3000,
+    max: 8000
+  }
+};
+
+function randomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shouldBeFlaky(probability) {
+  return FLAKY_CONFIG.enabled && Math.random() < probability;
+}
+
+// Flakiness middleware for GET /api/expenses
+function flakyGetMiddleware(req, res, next) {
+  if (shouldBeFlaky(FLAKY_CONFIG.slowProbability)) {
+    const delay = randomDelay(FLAKY_CONFIG.slowDelayMs.min, FLAKY_CONFIG.slowDelayMs.max);
+    console.log(`[FLAKY] Injecting ${delay}ms delay on GET /api/expenses`);
+    setTimeout(next, delay);
+  } else {
+    next();
+  }
+}
+
+// ============================================================
+
 function readDB() {
   if (!fs.existsSync(DB_PATH)) {
     const initial = { expenses: [] };
@@ -25,7 +63,6 @@ function writeDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
-// Seed data if empty
 function seedIfEmpty() {
   const db = readDB();
   if (db.expenses.length === 0) {
@@ -33,91 +70,73 @@ function seedIfEmpty() {
     {
         "id": "seed-1",
         "title": "Grocery Shopping",
-        "description": "Sample description for Grocery Shopping. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 1.",
         "category": "Food",
-        "createdAt": "2026-07-21T00:21:18.581Z",
-        "amount": "71.41",
+        "createdAt": "2024-01-01T10:00:00.000Z",
+        "amount": "10.0",
         "type": "expense"
     },
     {
         "id": "seed-2",
         "title": "Monthly Rent",
-        "description": "Sample description for Monthly Rent. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 2.",
         "category": "Transport",
-        "createdAt": "2026-07-20T00:21:18.581Z",
-        "amount": "133.74",
+        "createdAt": "2024-02-02T10:00:00.000Z",
+        "amount": "25.5",
         "type": "income"
     },
     {
         "id": "seed-3",
         "title": "Netflix Subscription",
-        "description": "Sample description for Netflix Subscription. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 3.",
         "category": "Entertainment",
-        "createdAt": "2026-07-19T00:21:18.581Z",
-        "amount": "68.95",
+        "createdAt": "2024-03-03T10:00:00.000Z",
+        "amount": "41.0",
         "type": "expense"
     },
     {
         "id": "seed-4",
         "title": "Gym Membership",
-        "description": "Sample description for Gym Membership. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 4.",
         "category": "Health",
-        "createdAt": "2026-07-18T00:21:18.581Z",
-        "amount": "11.21",
+        "createdAt": "2024-04-04T10:00:00.000Z",
+        "amount": "56.5",
         "type": "income"
     },
     {
         "id": "seed-5",
         "title": "Restaurant Dinner",
-        "description": "Sample description for Restaurant Dinner. This is test data for the flaky test detection research study.",
-        "category": "Shopping",
-        "createdAt": "2026-07-17T00:21:18.581Z",
-        "amount": "84.07",
+        "description": "Sample description for research study item 5.",
+        "category": "Food",
+        "createdAt": "2024-05-05T10:00:00.000Z",
+        "amount": "72.0",
         "type": "expense"
     },
     {
         "id": "seed-6",
         "title": "Petrol",
-        "description": "Sample description for Petrol. This is test data for the flaky test detection research study.",
-        "category": "Bills",
-        "createdAt": "2026-07-16T00:21:18.581Z",
-        "amount": "207.84",
+        "description": "Sample description for research study item 6.",
+        "category": "Transport",
+        "createdAt": "2024-06-06T10:00:00.000Z",
+        "amount": "87.5",
         "type": "income"
     },
     {
         "id": "seed-7",
         "title": "Electric Bill",
-        "description": "Sample description for Electric Bill. This is test data for the flaky test detection research study.",
-        "category": "Food",
-        "createdAt": "2026-07-15T00:21:18.581Z",
-        "amount": "181.91",
+        "description": "Sample description for research study item 7.",
+        "category": "Entertainment",
+        "createdAt": "2024-07-07T10:00:00.000Z",
+        "amount": "103.0",
         "type": "expense"
     },
     {
         "id": "seed-8",
         "title": "New Shoes",
-        "description": "Sample description for New Shoes. This is test data for the flaky test detection research study.",
-        "category": "Transport",
-        "createdAt": "2026-07-14T00:21:18.581Z",
-        "amount": "166.49",
-        "type": "income"
-    },
-    {
-        "id": "seed-9",
-        "title": "Coffee",
-        "description": "Sample description for Coffee. This is test data for the flaky test detection research study.",
-        "category": "Entertainment",
-        "createdAt": "2026-07-13T00:21:18.581Z",
-        "amount": "114.66",
-        "type": "expense"
-    },
-    {
-        "id": "seed-10",
-        "title": "Phone Bill",
-        "description": "Sample description for Phone Bill. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 8.",
         "category": "Health",
-        "createdAt": "2026-07-12T00:21:18.581Z",
-        "amount": "180.29",
+        "createdAt": "2024-08-08T10:00:00.000Z",
+        "amount": "118.5",
         "type": "income"
     }
 ];
@@ -126,13 +145,13 @@ function seedIfEmpty() {
 }
 seedIfEmpty();
 
-// GET all
-app.get('/api/expenses', (req, res) => {
+// GET all - with flakiness injection
+app.get('/api/expenses', flakyGetMiddleware, (req, res) => {
   const db = readDB();
   let items = db.expenses;
   if (req.query.search) {
     const q = req.query.search.toLowerCase();
-    items = items.filter(i => i.title && i.title.toLowerCase().includes(q) || (i.name && i.name.toLowerCase().includes(q)));
+    items = items.filter(i => (i.title && i.title.toLowerCase().includes(q)) || (i.name && i.name.toLowerCase().includes(q)));
   }
   if (req.query.category) {
     items = items.filter(i => i.category === req.query.category);
@@ -140,16 +159,31 @@ app.get('/api/expenses', (req, res) => {
   res.json(items);
 });
 
-// GET one
+// GET one - with flakiness injection
 app.get('/api/expenses/:id', (req, res) => {
-  const db = readDB();
-  const item = db.expenses.find(i => i.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'Not found' });
-  res.json(item);
+  if (shouldBeFlaky(FLAKY_CONFIG.slowProbability * 0.5)) {
+    const delay = randomDelay(2000, 5000);
+    console.log(`[FLAKY] Injecting ${delay}ms delay on GET /api/expenses/${req.params.id}`);
+    setTimeout(() => {
+      const db = readDB();
+      const item = db.expenses.find(i => i.id === req.params.id);
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      res.json(item);
+    }, delay);
+  } else {
+    const db = readDB();
+    const item = db.expenses.find(i => i.id === req.params.id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    res.json(item);
+  }
 });
 
-// POST create
+// POST create - with flakiness injection (random 500 errors)
 app.post('/api/expenses', (req, res) => {
+  if (shouldBeFlaky(FLAKY_CONFIG.errorProbability)) {
+    console.log(`[FLAKY] Injecting 500 error on POST /api/expenses`);
+    return res.status(500).json({ error: 'Internal server error - flaky injection' });
+  }
   const db = readDB();
   const item = { id: uuidv4(), ...req.body, createdAt: new Date().toISOString() };
   db.expenses.push(item);
@@ -186,11 +220,11 @@ app.post('/api/reset', (req, res) => {
 });
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', project: 'Expense Tracker' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', project: 'Expense Tracker', flakyEnabled: FLAKY_CONFIG.enabled }));
 
 // Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
-app.listen(PORT, () => console.log('Expense Tracker server running on http://localhost:3004'));
+app.listen(PORT, () => console.log('Expense Tracker server running on http://localhost:3004 [FLAKY MODE: ' + FLAKY_CONFIG.enabled + ']'));
