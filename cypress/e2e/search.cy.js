@@ -1,6 +1,6 @@
 // Search and Filter Tests - Expense Tracker
-// NOTE: Tests marked [FLAKY-INJECTED] are deliberately unstable
-// for MSc dissertation research on AI-assisted flaky test detection.
+// [FLAKY-INJECTED] tests are deliberately unstable (~30% failure rate)
+// MSc Dissertation: AI-Assisted Flaky Test Detection in CI/CD Pipelines
 
 describe('Search and Filter - Expense Tracker', () => {
   beforeEach(() => {
@@ -17,10 +17,8 @@ describe('Search and Filter - Expense Tracker', () => {
     cy.get('#filter-category').should('be.visible');
   });
 
-  // [FLAKY-INJECTED] timing: search results may not render before assertion
+  // [FLAKY-INJECTED] backend slow response means list items not loaded when search runs
   it('searching for existing item title shows result', () => {
-    // Flakiness: intermittent delay before search results load
-    cy.wait(Math.random() < 0.35 ? 5000 : 200);
     cy.get('#expenses-list .item-card').first().find('.item-title').invoke('text').then(title => {
       const searchTerm = title.slice(0, 5);
       cy.get('#search-input').clear().type(searchTerm);
@@ -46,12 +44,10 @@ describe('Search and Filter - Expense Tracker', () => {
     cy.get('#filter-category option').first().should('contain', 'All Categories');
   });
 
-  // [FLAKY-INJECTED] backend: slow response causes filter to appear empty
+  // [FLAKY-INJECTED] backend slow response causes filtered results to appear empty
   it('filter by first category works', () => {
     cy.get('#filter-category').find('option').eq(1).invoke('val').then(val => {
       cy.get('#filter-category').select(val);
-      // Flakiness: backend delay means filtered results not ready when checked
-      cy.wait(Math.random() < 0.35 ? 5500 : 200);
       cy.get('#expenses-list').should('be.visible');
     });
   });
