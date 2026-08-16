@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI Pipeline (AI-Assisted)
 
 on:
   push:
@@ -15,10 +15,13 @@ jobs:
         group:
           - name: group-1-navigation
             spec: "cypress/e2e/navigation.cy.js"
+            label: "navigation"
           - name: group-2-crud
             spec: "cypress/e2e/crud.cy.js"
+            label: "crud"
           - name: group-3-search
             spec: "cypress/e2e/search.cy.js"
+            label: "search"
 
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +31,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
         run: npm install
 
@@ -36,10 +44,9 @@ jobs:
 
       - name: Wait for server
         run: npx wait-on http://localhost:3004/api/health --timeout 30000
-        env:
-          PORT: 3001
 
       - name: Run Cypress (${{ matrix.group.name }})
+        id: cypress
         uses: cypress-io/github-action@v6
         with:
           browser: chrome
@@ -48,3 +55,33 @@ jobs:
           install: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: AI Flakiness Classification
+        if: steps.cypress.outcome == 'failure'
+        run: |
+          python ai_classifier_ci.py \
+            --group ${{ matrix.group.label }} \
+            --passed 0 \
+            --run-number ${{ github.run_number }} \
+            --project 04-expense-tracker
+        continue-on-error: false
+
+      - name: Update Pass Rate History (on success)
+        if: steps.cypress.outcome == 'success'
+        run: |
+          python ai_classifier_ci.py \
+            --group ${{ matrix.group.label }} \
+            --passed 1 \
+            --run-number ${{ github.run_number }} \
+            --project 04-expense-tracker
+
+      - name: Upload AI Decision
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-decision-${{ matrix.group.name }}-${{ github.run_number }}
+          path: |
+            decision.json
+            ai_decisions_log.jsonl
+          retention-days: 30
